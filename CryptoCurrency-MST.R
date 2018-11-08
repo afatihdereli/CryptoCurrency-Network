@@ -128,31 +128,32 @@ plot(mst)
 
 library(visNetwork)
 mst_df <- get.data.frame( mst, what = "both" )
-visNetwork( 
-  data.frame(
-    id = 1:nrow(mst_df$vertices) 
-    ,label = mst_df$vertices
-  )
-  , mst_df$edges
-) %>%
-  visOptions( highlightNearest = TRUE)
+# visNetwork( 
+#   data.frame(
+#     id = 1:nrow(mst_df$vertices) 
+#     ,label = mst_df$vertices
+#   )
+#   , mst_df$edges
+# ) %>%
+#   visOptions( highlightNearest = TRUE)
 
 
 
 nodes <- data.frame(id = 1:nrow(mst_df$vertices), 
                     label=mst_df$vertices
+                    ,color.background=c(rep(NA,5),"orange",rep(NA,44))
                     #color.background = c("red", "blue", "green"),
                     #color.highlight.background = c("red", NA, "red"), 
                     #shadow.size = c(5, 10, 15)
                     )
 
-edges <- data.frame(from=mst_df$from,  to=mst_df$to,
-  size=mst_df$weight
-                    #from = c(1,2), to = c(1,3),
-                    #label = LETTERS[1:2], 
-                    #font.color =c ("red", "blue"), 
-                    #font.size = c(10,20)
-  )
+# edges <- data.frame(from=mst_df$from,  to=mst_df$to,
+#   size=mst_df$weight
+#                     #from = c(1,2), to = c(1,3),
+#                     #label = LETTERS[1:2], 
+#                     #font.color =c ("red", "blue"), 
+#                     #font.size = c(10,20)
+#   )
 
 visNetwork(nodes, mst_df$edges)  
 %>%
