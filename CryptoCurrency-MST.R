@@ -26,6 +26,8 @@ coinlist<-unique(prices$symbol)
 
 fulldata<-data.table(NULL)
 
+ObservationQuantity<-500
+
 for(i in 1:200)
 {
   tryCatch({
@@ -46,11 +48,13 @@ fulldata$TimeFrom<-as.Date(as.POSIXct(fulldata$TimeFrom, origin="1970-01-01"))
 fulldata[fulldata$Data.close>0,][, .N, by = coin]
 fulldata[fulldata$Data.close>0,][, .N, by = Data.time]
 
-filterdate<-Sys.Date()-201
+#fulldata[fulldata$Data.close>0,][, .N, by = coin]
+
+filterdate<-Sys.Date()-(ObservationQuantity+1)
 
 #Filtering coins having last 200 days of observations
 datecount<-fulldata[fulldata$Data.close>0&fulldata$Data.time>filterdate,][, .N, by = coin]
-datecount<-datecount[datecount$N==201,]
+datecount<-datecount[datecount$N==(ObservationQuantity+1),]
 
 setkey(fulldata,coin)
 setkey(datecount,coin)
@@ -76,7 +80,7 @@ for(i in 1:length(filteredcoins))
     
     data$change<-(data$prev/data$Data.close)-1
     
-    percchange<-rbind(percchange,data[2:201,c(1,2,5)])
+    percchange<-rbind(percchange,data[2:(ObservationQuantity+1),c(1,2,5)])
 
 }
 
@@ -107,13 +111,18 @@ for(i in 1:length(filteredcoins))
 
 #melt(percchange, coin)
 
-cast<-dcast(percchange,Data.time~coin,value.var="change")
+mstcoinqty<-50
+
+#Filtering out Tether and TrueUSD
+cast<-dcast(percchange[!(percchange$coin %in% c("USDT","TUSD")),][1:ObservationQuantity*mstcoinqty,],Data.time~coin,value.var="change")
 
 cor.distance <- cor(cast[,-1])
 corrplot::corrplot(cor.distance)
 
+distance<-sqrt(2*(1-cor.distance))
+
 library(igraph)
-g1 <- graph.adjacency(cor.distance, weighted = T, mode = "undirected", add.colnames = "label")
+g1 <- graph.adjacency(distance, weighted = T, mode = "undirected", add.colnames = "label")
 mst <- minimum.spanning.tree(g1)
 plot(mst)
 
@@ -131,13 +140,20 @@ visNetwork(
 
 
 nodes <- data.frame(id = 1:nrow(mst_df$vertices), 
-                    color.background = c("red", "blue", "green"),
-                    color.highlight.background = c("red", NA, "red"), 
-                    shadow.size = c(5, 10, 15))
+                    label=mst_df$vertices
+                    #color.background = c("red", "blue", "green"),
+                    #color.highlight.background = c("red", NA, "red"), 
+                    #shadow.size = c(5, 10, 15)
+                    )
 
-edges <- data.frame(from = c(1,2), to = c(1,3),
-                    label = LETTERS[1:2], 
-                    font.color =c ("red", "blue"), 
-                    font.size = c(10,20))
+edges <- data.frame(from=mst_df$from,  to=mst_df$to,
+  size=mst_df$weight
+                    #from = c(1,2), to = c(1,3),
+                    #label = LETTERS[1:2], 
+                    #font.color =c ("red", "blue"), 
+                    #font.size = c(10,20)
+  )
 
-visNetwork(nodes, edges)  
+visNetwork(nodes, mst_df$edges)  
+%>%
+  visOptions( highlightNearest = TRUE, nodesIdSelection = TRUE)
