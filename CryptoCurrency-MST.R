@@ -26,7 +26,7 @@ coinlist<-unique(prices$symbol)
 
 fulldata<-data.table(NULL)
 
-ObservationQuantity<-200
+ObservationQuantity<-400
 
 for(i in 1:200)
 {
@@ -130,7 +130,8 @@ corrplot::corrplot(cor.distance)
 distance<-sqrt(2*(1-cor.distance))
 
 library(igraph)
-g1 <- graph.adjacency(distance, weighted = T, mode = "undirected", add.colnames = "label")
+#directed/undirected
+g1 <- graph.adjacency(distance, weighted = T, mode = "directed", add.colnames = "label")
 mst <- minimum.spanning.tree(g1)
 plot(mst)
 
@@ -145,23 +146,30 @@ mst_df <- get.data.frame( mst, what = "both" )
 # ) %>%
 #   visOptions( highlightNearest = TRUE)
 
-
+colors<-cbind(mst_df$vertices,color=NA)
+colors[colors$label=='BTC',]$color<-"orange"
+colors[colors$label=='LTC',]$color<-"red"
+colors[colors$label=='ETH',]$color<-"yellow"
+colors[colors$label=='XRP',]$color<-"green"
+colors[colors$label=='XLM',]$color<-"black"
+colors[colors$label=='EOS',]$color<-"brown"
 
 nodes <- data.frame(id = 1:nrow(mst_df$vertices), 
                     label=mst_df$vertices
-                    ,color.background=c(rep(NA,6),"orange",rep(NA,43))
+                    ,color.background=colors$color
+                    #,color.background=c(rep(NA,6),"orange",rep(NA,43))
                     #color.background = c("red", "blue", "green"),
                     #color.highlight.background = c("red", NA, "red"), 
                     #shadow.size = c(5, 10, 15)
                     )
 
-# edges <- data.frame(from=mst_df$from,  to=mst_df$to,
-#   size=mst_df$weight
-#                     #from = c(1,2), to = c(1,3),
-#                     #label = LETTERS[1:2], 
-#                     #font.color =c ("red", "blue"), 
-#                     #font.size = c(10,20)
-#   )
+edges <- data.frame(from=mst_df$edges$from,  to=mst_df$edges$to,
+  size=mst_df$edges$weight
+                    #from = c(1,2), to = c(1,3),
+                    #label = LETTERS[1:2],
+                    #font.color =c ("red", "blue"),
+                    #font.size = c(10,20)
+  )
 
-visOptions(visNetwork(nodes, mst_df$edges), highlightNearest = TRUE, nodesIdSelection = TRUE)
+visOptions(visNetwork(nodes, edges), highlightNearest = TRUE, nodesIdSelection = TRUE)
 
