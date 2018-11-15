@@ -26,7 +26,7 @@ coinlist<-unique(prices$symbol)
 
 fulldata<-data.table(NULL)
 
-ObservationQuantity<-500
+ObservationQuantity<-200
 
 for(i in 1:200)
 {
@@ -34,33 +34,37 @@ for(i in 1:200)
     coin<-prices$symbol[i]
     
     data<-data.frame(jsonlite::fromJSON(RCurl::getURL(paste0("https://min-api.cryptocompare.com/data/histoday?fsym=", 
-                                                             coin,"&tsym=USD&limit=1000"))))
+                                                             coin,"&tsym=USD&limit=1000")))$Data)
     
     fulldata<-rbind(fulldata,cbind(coin,data))
   }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
 }
 
 #Formatting colums()
-fulldata$Data.time<-as.Date(as.POSIXct(fulldata$Data.time, origin="1970-01-01"))
-fulldata$TimeTo<-as.Date(as.POSIXct(fulldata$TimeTo, origin="1970-01-01"))
-fulldata$TimeFrom<-as.Date(as.POSIXct(fulldata$TimeFrom, origin="1970-01-01"))
+fulldata$Data.time<-as.Date(as.POSIXct(fulldata$time, origin="1970-01-01"))
+#fulldata$TimeTo<-as.Date(as.POSIXct(fulldata$TimeTo, origin="1970-01-01"))
+#fulldata$TimeFrom<-as.Date(as.POSIXct(fulldata$TimeFrom, origin="1970-01-01"))
 
-fulldata[fulldata$Data.close>0,][, .N, by = coin]
-fulldata[fulldata$Data.close>0,][, .N, by = Data.time]
+fulldata[fulldata$close>0,][, .N, by = coin]
+fulldata[fulldata$close>0,][, .N, by = Data.time]
 
 #fulldata[fulldata$Data.close>0,][, .N, by = coin]
 
-filterdate<-Sys.Date()-(ObservationQuantity+1)
+shiftbackperiod<-0
+
+mindate<-Sys.Date()-(ObservationQuantity+1)-shiftbackperiod
+maxdate<-Sys.Date()-1-shiftbackperiod
 
 #Filtering coins having last 200 days of observations
-datecount<-fulldata[fulldata$Data.close>0&fulldata$Data.time>filterdate,][, .N, by = coin]
+datecount<-fulldata[fulldata$close>0&fulldata$Data.time>=mindate&fulldata$Data.time<=maxdate,][, .N, by = coin]
 datecount<-datecount[datecount$N==(ObservationQuantity+1),]
 
 setkey(fulldata,coin)
 setkey(datecount,coin)
-fulldata<-fulldata[fulldata$Data.time>filterdate,][datecount,nomatch=0]
+fulldata<-fulldata[fulldata$Data.time>=mindate&fulldata$Data.time<=maxdate,][datecount,nomatch=0]
 
-datafiltered<-fulldata[,c(1,5,6)]
+#???datafiltered<-fulldata[,c(1,5,6)]
+datafiltered<-fulldata[,c(1,3,9)]
 filteredcoins<-unique(datafiltered$coin)
 
 #Percent change created for each day
@@ -76,16 +80,18 @@ for(i in 1:length(filteredcoins))
 
     #coin<-as.character(datecount$coin)
     
-    data<-mutate(datafiltered[datafiltered$coin==filteredcoins[i],],prev=lag(Data.close))
+    data<-mutate(datafiltered[datafiltered$coin==filteredcoins[i],],prev=lag(close))
     
-    data$change<-(data$prev/data$Data.close)-1
+    data$change<-(data$close/data$prev)-1
     
-    percchange<-rbind(percchange,data[2:(ObservationQuantity+1),c(1,2,5)])
+    #percchange<-rbind(percchange,data[2:(ObservationQuantity+1),c(1,2,5)])
+    
+    percchange<-rbind(percchange,data[2:(ObservationQuantity+1),c(1,3,5)])
 
 }
 
 
-#write.csv(percchange,"Coin_Price_Changes_20181106_Full.csv")
+#write.csv(percchange,"Coin_Price_Changes_20181115_Full.csv")
 
 # #Cross correlations are calculated
 # crosscorr<-data.table(NULL)
@@ -115,6 +121,8 @@ mstcoinqty<-50
 
 #Filtering out Tether and TrueUSD
 cast<-dcast(percchange[!(percchange$coin %in% c("USDT","TUSD")),][1:ObservationQuantity*mstcoinqty,],Data.time~coin,value.var="change")
+#cast<-dcast(percchange[1:ObservationQuantity*mstcoinqty,],Data.time~coin,value.var="change")
+
 
 cor.distance <- cor(cast[,-1])
 corrplot::corrplot(cor.distance)
@@ -141,7 +149,7 @@ mst_df <- get.data.frame( mst, what = "both" )
 
 nodes <- data.frame(id = 1:nrow(mst_df$vertices), 
                     label=mst_df$vertices
-                    ,color.background=c(rep(NA,5),"orange",rep(NA,44))
+                    ,color.background=c(rep(NA,6),"orange",rep(NA,43))
                     #color.background = c("red", "blue", "green"),
                     #color.highlight.background = c("red", NA, "red"), 
                     #shadow.size = c(5, 10, 15)
@@ -155,6 +163,5 @@ nodes <- data.frame(id = 1:nrow(mst_df$vertices),
 #                     #font.size = c(10,20)
 #   )
 
-visNetwork(nodes, mst_df$edges)  
-%>%
-  visOptions( highlightNearest = TRUE, nodesIdSelection = TRUE)
+visOptions(visNetwork(nodes, mst_df$edges), highlightNearest = TRUE, nodesIdSelection = TRUE)
+
