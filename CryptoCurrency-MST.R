@@ -26,7 +26,7 @@ coinlist<-unique(prices$symbol)
 
 fulldata<-data.table(NULL)
 
-ObservationQuantity<-400
+ObservationQuantity<-500
 
 for(i in 1:200)
 {
