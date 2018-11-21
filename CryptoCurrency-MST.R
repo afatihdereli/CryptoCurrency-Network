@@ -19,14 +19,13 @@ get_marketcap_ticker_all_full <-function (currency = "USD")
 #Coin list from CoinMarketCap
 prices<-get_marketcap_ticker_all_full()
 
+write.csv(prices,"CoinMarketCap_20181120.csv")
 
 #CryptoCompare Price History Loop
 
 coinlist<-unique(prices$symbol)
 
 fulldata<-data.table(NULL)
-
-ObservationQuantity<-500
 
 for(i in 1:200)
 {
@@ -50,7 +49,9 @@ fulldata[fulldata$close>0,][, .N, by = Data.time]
 
 #fulldata[fulldata$Data.close>0,][, .N, by = coin]
 
-shiftbackperiod<-0
+ObservationQuantity<-500
+
+shiftbackperiod<-1
 
 mindate<-Sys.Date()-(ObservationQuantity+1)-shiftbackperiod
 maxdate<-Sys.Date()-1-shiftbackperiod
@@ -61,10 +62,10 @@ datecount<-datecount[datecount$N==(ObservationQuantity+1),]
 
 setkey(fulldata,coin)
 setkey(datecount,coin)
-fulldata<-fulldata[fulldata$Data.time>=mindate&fulldata$Data.time<=maxdate,][datecount,nomatch=0]
+datafiltered<-fulldata[fulldata$Data.time>=mindate&fulldata$Data.time<=maxdate,][datecount,nomatch=0]
 
 #???datafiltered<-fulldata[,c(1,5,6)]
-datafiltered<-fulldata[,c(1,3,9)]
+datafiltered<-datafiltered[,c(1,3,9)]
 filteredcoins<-unique(datafiltered$coin)
 
 #Percent change created for each day
@@ -127,11 +128,13 @@ cast<-dcast(percchange[!(percchange$coin %in% c("USDT","TUSD")),][1:ObservationQ
 cor.distance <- cor(cast[,-1])
 corrplot::corrplot(cor.distance)
 
+###Partial cross correlation ekleyelim
+
 distance<-sqrt(2*(1-cor.distance))
 
 library(igraph)
 #directed/undirected
-g1 <- graph.adjacency(distance, weighted = T, mode = "directed", add.colnames = "label")
+g1 <- graph.adjacency(distance, weighted = T, mode = "undirected", add.colnames = "label")
 mst <- minimum.spanning.tree(g1)
 plot(mst)
 
@@ -171,5 +174,60 @@ edges <- data.frame(from=mst_df$edges$from,  to=mst_df$edges$to,
                     #font.size = c(10,20)
   )
 
-visOptions(visNetwork(nodes, edges), highlightNearest = TRUE, nodesIdSelection = TRUE)
+vis<-visOptions(visNetwork(nodes, edges), highlightNearest = TRUE, nodesIdSelection = TRUE)
 
+
+clus<-as.hclust(vegan::spantree(distance))
+plot(clus)
+plot(clus,vis)
+
+
+dendrogram <- cluster_edge_betweenness(g1)
+plot(dendrogram,vis)
+
+
+
+# vector of colors labelColors = c('red', 'blue', 'darkgreen', 'darkgrey',
+# 'purple')
+labelColors = c("#CDB380", "#036564", "#EB6841", "#EDC951")
+# cut dendrogram in 4 clusters
+clusMember = cutree(clus, 4)
+# function to get color labels
+colLab <- function(n) {
+  if (is.leaf(n)) {
+    a <- attributes(n)
+    labCol <- labelColors[clusMember[which(names(clusMember) == a$label)]]
+    attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol)
+  }
+  n
+}
+# using dendrapply
+clusDendro = dendrapply(dendrogram, colLab)
+# make plot
+plot(clusDendro, main = "Cool Dendrogram", type = "triangle")
+
+
+
+
+# load code of A2R function
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R")
+# colored dendrogram
+op = par(bg = "#EFEFEF")
+A2Rplot(clus, k = 9, boxes = FALSE, col.up = "gray50")
+        #, col.down = c("#FF6B6B", "#4ECDC4", "#556270"))
+
+
+install.packages("ape")
+plot(ape::as.phylo(clus), type = "fan")
+
+
+
+# add colors randomly(clustera göre renk atanabilir)
+plot(ape::as.phylo(clus), type = "fan", tip.color = hsv(runif(15, 0.65, 
+                                                       0.95), 1, 1, 0.7), edge.color = hsv(runif(10, 0.65, 0.75), 1, 1, 0.7), edge.width = runif(20, 
+                                                                                                                                                 0.5, 3), use.edge.length = TRUE, col = "gray80")
+
+
+install.packages("ggdendro")
+# another option
+ggdendro::ggdendrogram(clus, rotate = TRUE, size = 4, theme_dendro = FALSE)
